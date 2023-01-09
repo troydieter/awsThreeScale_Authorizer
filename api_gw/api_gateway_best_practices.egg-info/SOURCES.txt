@@ -1,0 +1,7 @@
+LICENSE
+README.md
+setup.py
+api_gw/api_gateway_best_practices.egg-info/PKG-INFO
+api_gw/api_gateway_best_practices.egg-info/SOURCES.txt
+api_gw/api_gateway_best_practices.egg-info/dependency_links.txt
+api_gw/api_gateway_best_practices.egg-info/top_level.txt
