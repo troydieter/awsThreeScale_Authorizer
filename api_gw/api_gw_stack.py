@@ -74,23 +74,23 @@ class APIGWStack(Stack):
         sqs_other_status_subscriber.add_event_source(SqsEventSource(other_status_queue))
 
         # Function Creation for Custom Authorizer
-        authorizer_function = Function(self, "lambdaauth3scale", runtime=Runtime.NODEJS_14_X, handler="handler"
+        authorizer_function = Function(self, "authorizer", runtime=Runtime.NODEJS_14_X, handler="handler"
                                                                                                       ".authorizer",
                                        code=Code.from_asset("lambda_fns/authorizer"))
 
-        authorizer_function = Function(self, "lambdarepsync3scale", runtime=Runtime.NODEJS_14_X, handler="handler"
+        authorizer_function = Function(self, "authRepAsync", runtime=Runtime.NODEJS_14_X, handler="handler"
                                                                                                          ".authRepAsync",
                                        code=Code.from_asset("lambda_fns/authorizer"))
 
-        oauth_function = Function(self, "lambdaoauth3scale", runtime=Runtime.NODEJS_14_X,
+        oauth_function = Function(self, "getToken", runtime=Runtime.NODEJS_14_X,
                                   handler="oauth.getToken",
                                   code=Code.from_asset("lambda_fns/authorizer"))
 
-        oauth_cachesync = Function(self, "lambdacachesync", runtime=Runtime.NODEJS_14_X,
+        oauth_cachesync = Function(self, "storeInCacheAsync", runtime=Runtime.NODEJS_14_X,
                                    handler="oauth.storeInCacheAsync",
                                    code=Code.from_asset("lambda_fns/authorizer"))
 
-        oauth_async = Function(self, "lambdaasync", runtime=Runtime.NODEJS_14_X,
+        oauth_async = Function(self, "storeOnThreescaleAsync", runtime=Runtime.NODEJS_14_X,
                                handler="oauth.storeOnThreescaleAsync",
                                code=Code.from_asset("lambda_fns/authorizer"))
 
