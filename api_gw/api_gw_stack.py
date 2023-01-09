@@ -1,16 +1,16 @@
 import json
 
-from constructs import Construct
 from aws_cdk import Stack, Duration
 from aws_cdk.aws_apigateway import StageOptions, RestApi, JsonSchema, JsonSchemaType, JsonSchemaVersion, \
     IntegrationOptions, PassthroughBehavior, Integration, IntegrationType, MethodResponse, MethodLoggingLevel, \
     IntegrationResponse
-from aws_cdk.aws_iam import Role, ServicePrincipal
+from aws_cdk.aws_iam import Role, ServicePrincipal, ManagedPolicy, PolicyStatement, AnyPrincipal
 from aws_cdk.aws_lambda import Function, Runtime, Code
-from aws_cdk.aws_lambda_event_sources import SqsEventSource
+from aws_cdk.aws_lambda_event_sources import SqsEventSource, SnsEventSource
 from aws_cdk.aws_sns import Topic, SubscriptionFilter
 from aws_cdk.aws_sns_subscriptions import SqsSubscription
 from aws_cdk.aws_sqs import Queue
+from constructs import Construct
 
 
 class APIGWStack(Stack):
@@ -73,26 +73,49 @@ class APIGWStack(Stack):
         other_status_queue.grant_consume_messages(sqs_other_status_subscriber)
         sqs_other_status_subscriber.add_event_source(SqsEventSource(other_status_queue))
 
+        ec2polstatement = PolicyStatement(resources=["*"], actions=["ec2:CreateNetworkInterface", "ec2:DescribeNetworkInterfaces", "ec2:DeleteNetworkInterface"])
+        iam_role_lambda = Role(self, "AuthRoleExec", assumed_by=ServicePrincipal(service="lambda.amazonaws.com"))
+        iam_role_lambda.add_to_policy(statement=ec2polstatement)
+
+        SNSAuthRepTopic = Topic(self, "SNSAuthRepTopic", display_name="SNSAuthRepTopic")
+        SNSAuthRepTopic.grant_publish(grantee=iam_role_lambda)
+        SNSCacheTokenTopic = Topic(self, "SNSCacheTokenTopic", display_name="SNSCacheTokenTopic")
+        SNSCacheTokenTopic.grant_publish(grantee=iam_role_lambda)
+
         # Function Creation for Custom Authorizer
-        authorizer_function = Function(self, "authorizer", runtime=Runtime.NODEJS_14_X, handler="handler"
+        authorizer = Function(self, "authorizer", runtime=Runtime.NODEJS_14_X, handler="handler"
                                                                                                       ".authorizer",
-                                       code=Code.from_asset("lambda_fns/authorizer"))
+                                       code=Code.from_asset("lambda_fns/authorizer"),
+                                       role=iam_role_lambda,
+                                       environment={"SNS_AUTHREP_ARN": SNSAuthRepTopic.topic_arn})
 
-        authorizer_function = Function(self, "authRepAsync", runtime=Runtime.NODEJS_14_X, handler="handler"
+        authRepAsync = Function(self, "authRepAsync", runtime=Runtime.NODEJS_14_X, handler="handler"
                                                                                                          ".authRepAsync",
-                                       code=Code.from_asset("lambda_fns/authorizer"))
+                                       code=Code.from_asset("lambda_fns/authorizer"),
+                                       role=iam_role_lambda,
+                                       )
 
-        oauth_function = Function(self, "getToken", runtime=Runtime.NODEJS_14_X,
+        getToken = Function(self, "getToken", runtime=Runtime.NODEJS_14_X,
                                   handler="oauth.getToken",
-                                  code=Code.from_asset("lambda_fns/authorizer"))
+                                  code=Code.from_asset("lambda_fns/authorizer"),
+                                  role=iam_role_lambda,
+                                  environment={"SNS_OAUTH_SYNC_ARN": SNSCacheTokenTopic.topic_arn})
 
-        oauth_cachesync = Function(self, "storeInCacheAsync", runtime=Runtime.NODEJS_14_X,
+        storeInCacheAsync = Function(self, "storeInCacheAsync", runtime=Runtime.NODEJS_14_X,
                                    handler="oauth.storeInCacheAsync",
-                                   code=Code.from_asset("lambda_fns/authorizer"))
+                                   code=Code.from_asset("lambda_fns/authorizer"),
+                                   role=iam_role_lambda)
 
-        oauth_async = Function(self, "storeOnThreescaleAsync", runtime=Runtime.NODEJS_14_X,
+        storeOnThreescaleAsync = Function(self, "storeOnThreescaleAsync", runtime=Runtime.NODEJS_14_X,
                                handler="oauth.storeOnThreescaleAsync",
-                               code=Code.from_asset("lambda_fns/authorizer"))
+                               code=Code.from_asset("lambda_fns/authorizer"),
+                               role=iam_role_lambda)
+
+        authRepAsync.add_event_source(source=SnsEventSource(topic=SNSAuthRepTopic))
+        storeInCacheAsync.add_event_source(source=SnsEventSource(topic=SNSCacheTokenTopic))
+        storeOnThreescaleAsync.add_event_source(source=SnsEventSource(topic=SNSCacheTokenTopic))
+
+
 
         ###
         # API Gateway Creation
@@ -213,3 +236,4 @@ class APIGWStack(Stack):
                                            }),
                         ]
                         )
+

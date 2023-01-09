@@ -20,7 +20,7 @@ class ElasticacheAppStack(Stack):
                       cidr="192.168.0.0/16",
                       subnet_configuration=[
                           ec2.SubnetConfiguration(name="public", subnet_type=ec2.SubnetType.PUBLIC, cidr_mask=24),
-                          ec2.SubnetConfiguration(name="private", subnet_type=ec2.SubnetType.PRIVATE_WITH_NAT,
+                          ec2.SubnetConfiguration(name="private", subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS,
                                                   cidr_mask=24)
                       ]
                       )
